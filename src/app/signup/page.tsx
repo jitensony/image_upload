@@ -2,6 +2,9 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { auth, db } from '@/lib/firebase';
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -10,26 +13,39 @@ export default function SignupPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSignup = (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== confirmPassword) {
       setError('Passwords do not match');
       return;
     }
+    
     if (name && email && password) {
-      const usersStr = localStorage.getItem('stellr_users') || '[]';
-      const users = JSON.parse(usersStr);
-      if (users.find((u: any) => u.email === email)) {
-        setError('Email already exists. Please log in.');
-        return;
-      }
-      
-      users.push({ name, email, password });
-      localStorage.setItem('stellr_users', JSON.stringify(users));
+      setLoading(true);
+      setError('');
+      try {
+        // Authenticate creation via Firebase Cloud Services natively securely
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        await updateProfile(userCredential.user, { displayName: name });
+        
+        // Document generation via Cloud Firestore inside generic 'users' block
+        await setDoc(doc(db, "users", userCredential.user.uid), {
+          name, 
+          email: email.toLowerCase(), 
+          createdAt: new Date().toISOString(),
+          isAdmin: false
+        });
 
-      document.cookie = "auth=true; path=/";
-      router.push('/dashboard');
+        document.cookie = "auth=true; path=/";
+        router.push('/dashboard');
+        
+      } catch (err: any) {
+        console.error('Firebase Auth Create Error:', err);
+        setError(err.message || 'Email already exists. Please log in.');
+        setLoading(false);
+      }
     }
   };
 
@@ -42,7 +58,7 @@ export default function SignupPage() {
         </div>
         
         {error && (
-          <div className="mb-4 p-3 rounded-lg bg-red-500/20 border border-red-500/50 text-red-200 text-sm text-center">
+          <div className="mb-4 p-4 rounded-xl bg-rose-500/20 border border-rose-500/50 text-rose-200 text-sm text-center shadow-[0_0_10px_rgba(244,63,94,0.2)]">
             {error}
           </div>
         )}
@@ -99,8 +115,8 @@ export default function SignupPage() {
               suppressHydrationWarning
             />
           </div>
-          <button type="submit" className="glass-button w-full mt-6">
-            Sign Up
+          <button type="submit" disabled={loading} className={`glass-button w-full mt-6 font-bold tracking-wide ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}>
+            {loading ? 'Creating Credentials...' : 'Sign Up'}
           </button>
         </form>
         

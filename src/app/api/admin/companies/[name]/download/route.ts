@@ -1,31 +1,38 @@
 import { NextResponse } from 'next/server';
-import path from 'path';
 import archiver from 'archiver';
-import { promises as fs } from 'fs';
-
-export const dynamic = 'force-dynamic';
+import { PassThrough } from 'stream';
+import { adminStorage } from '@/lib/firebase-admin';
 
 export async function GET(request: Request, { params }: { params: Promise<{ name: string }> }) {
   try {
     const { name } = await params;
-    const sanitizedName = name.replace(/[^a-z0-9_]/gi, '');
-    const os = require('os');
-    const UPLOAD_BASE = process.env.VERCEL ? path.join(os.tmpdir(), 'stellr_uploads') : path.join(process.cwd(), 'public', 'uploads');
-    const folderPath = path.join(UPLOAD_BASE, sanitizedName);
+    const decodedName = decodeURIComponent(name);
 
-    try {
-      await fs.access(folderPath);
-    } catch {
-      return NextResponse.json({ error: 'Company not found' }, { status: 404 });
+    // Query active specific file buffer sequences strictly from active Google Cloud Servers
+    const [files] = await adminStorage.getFiles({ prefix: `companies/${decodedName}/` });
+    
+    if (files.length === 0) {
+      return NextResponse.json({ error: 'Company essentially empty on Firebase' }, { status: 404 });
     }
 
-    const archive = archiver('zip', { zlib: { level: 9 } });
-    
-    // Convert Node stream to Web Stream natively for Next.js Response body
-    const { PassThrough } = require('stream');
+    const archive = archiver('zip', { zlib: { level: 5 } });
     const passThrough = new PassThrough();
-    
-    // Convert standard node readable stream into web-compliant ReadableStream
+
+    archive.on('error', (err) => {
+      console.error('Archiver internal breakdown mapping:', err);
+    });
+
+    files.forEach((file) => {
+      // Isolate strict native filename bypassing deep structural paths
+      const fileName = file.name.split('/').pop() || 'unknown.jpg';
+      
+      // Feed Google Cloud remote bucket chunks natively downstream
+      const readStream = file.createReadStream();
+      archive.append(readStream as any, { name: fileName });
+    });
+
+    archive.finalize();
+
     const readableWebStream = new ReadableStream({
       start(controller) {
         passThrough.on('data', (chunk: any) => {
@@ -41,18 +48,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ name
     });
 
     archive.pipe(passThrough);
-    archive.directory(folderPath, false); // bundle entirety of company folder
-    archive.finalize();
 
     return new NextResponse(readableWebStream, {
       headers: {
         'Content-Type': 'application/zip',
-        'Content-Disposition': `attachment; filename="${sanitizedName}_images.zip"`,
+        'Content-Disposition': `attachment; filename="${decodedName}_archive.zip"`,
       },
     });
-
   } catch (error) {
-    console.error('Error generating ZIP:', error);
-    return NextResponse.json({ error: 'Failed to generate archive' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to reconstruct native Google remote ZIP' }, { status: 500 });
   }
 }

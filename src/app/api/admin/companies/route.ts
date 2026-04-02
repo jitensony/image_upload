@@ -1,43 +1,36 @@
 import { NextResponse } from 'next/server';
-import { promises as fs } from 'fs';
-import path from 'path';
+import { adminDb } from '@/lib/firebase-admin';
 
 export async function GET() {
   try {
-    const os = require('os');
-    const uploadsDir = process.env.VERCEL ? path.join(os.tmpdir(), 'stellr_uploads') : path.join(process.cwd(), 'public', 'uploads');
+    const imagesRef = adminDb.collection('images');
+    const snapshot = await imagesRef.get();
     
+    // Dynamically aggregate metrics locally via Firestore active snapshot arrays
+    const companyStats: Record<string, { count: number, lastUpdate: string }> = {};
     
-    // Check if the overall uploads directory exists
-    try {
-      await fs.access(uploadsDir);
-    } catch {
-      // If the directory hasn't even been generated yet, just return an empty array gracefully
-      return NextResponse.json({ companies: [] });
-    }
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      const company = data.companyName;
+      if(!companyStats[company]) {
+        companyStats[company] = { count: 1, lastUpdate: data.uploadedAt };
+      } else {
+        companyStats[company].count += 1;
+        if(new Date(data.uploadedAt) > new Date(companyStats[company].lastUpdate)) {
+          companyStats[company].lastUpdate = data.uploadedAt;
+        }
+      }
+    });
 
-    const folders = await fs.readdir(uploadsDir, { withFileTypes: true });
-    
-    const companies = await Promise.all(
-      folders
-        .filter(dirent => dirent.isDirectory())
-        .map(async (dirent) => {
-          const folderPath = path.join(uploadsDir, dirent.name);
-          const stat = await fs.stat(folderPath);
-          const files = await fs.readdir(folderPath);
-          const images = files.filter(file => file.match(/\.(jpg|jpeg|png|gif|webp)$/i));
-          
-          return {
-            name: dirent.name,
-            imageCount: images.length,
-            createdAt: stat.birthtime // Date created logic mapped to disk folder birthtime
-          };
-        })
-    );
+    const formattedCompanies = Object.keys(companyStats).map(name => ({
+      name,
+      fileCount: companyStats[name].count,
+      lastModified: companyStats[name].lastUpdate
+    }));
 
-    return NextResponse.json({ companies });
+    return NextResponse.json({ companies: formattedCompanies });
   } catch (error) {
-    console.error('Error fetching backend company folders:', error);
-    return NextResponse.json({ error: 'Failed to fetch companies metadata' }, { status: 500 });
+    console.error('Firebase Firestore Read Error:', error);
+    return NextResponse.json({ error: 'Failed to fetch companies' }, { status: 500 });
   }
 }

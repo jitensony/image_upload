@@ -2,34 +2,43 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { auth } from '@/lib/firebase';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     
     if (email && password) {
-      if (email === 'jack@stellrit.com' && password === 'StellR@54835') {
+      setLoading(true);
+      const sanitizedEmail = email.trim().toLowerCase();
+      const sanitizedPassword = password.trim();
+
+      // Priority intercept for Super Administrator
+      if (sanitizedEmail === 'jack@stellrit.com' && sanitizedPassword === 'StellR@54835') {
         document.cookie = "auth=true; path=/";
         document.cookie = "admin=true; path=/";
         router.push('/admin');
         return;
       }
       
-      const usersStr = localStorage.getItem('stellr_users') || '[]';
-      const users = JSON.parse(usersStr);
-      const user = users.find((u: any) => u.email === email && u.password === password);
-      
-      if (user) {
+      try {
+        // Authenticate Standard User identically securely against Google Firebase DB
+        await signInWithEmailAndPassword(auth, sanitizedEmail, sanitizedPassword);
+        
         document.cookie = "auth=true; path=/";
         router.push('/dashboard');
-      } else {
-        setError('Invalid email or password. Please try again.');
+      } catch (err: any) {
+        console.error('Firebase Auth Error:', err);
+        setError('Invalid connection credentials. Double check your email and password.');
+        setLoading(false);
       }
     }
   };
@@ -43,7 +52,7 @@ export default function LoginPage() {
         </div>
         
         {error && (
-          <div className="mb-4 p-3 rounded-lg bg-red-500/20 border border-red-500/50 text-red-200 text-sm text-center">
+          <div className="mb-6 p-4 rounded-xl bg-rose-500/20 border border-rose-500/50 text-rose-200 text-sm text-center shadow-[0_0_10px_rgba(244,63,94,0.2)]">
             {error}
           </div>
         )}
@@ -88,8 +97,8 @@ export default function LoginPage() {
               Remember Me
             </label>
           </div>
-          <button type="submit" className="glass-button w-full mt-2">
-            Sign In
+          <button type="submit" disabled={loading} className={`glass-button w-full mt-2 font-bold tracking-wide ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}>
+            {loading ? 'Authenticating...' : 'Sign In'}
           </button>
         </form>
         
