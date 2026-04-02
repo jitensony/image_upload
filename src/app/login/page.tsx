@@ -55,7 +55,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center p-4">
       <div className="glass-panel w-full max-w-md p-8 animate-fade-in border border-white/10 shadow-[0_0_40px_rgba(0,0,0,0.8)] backdrop-blur-2xl">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-black tracking-tight text-white mb-2">StellR Upload</h1>
+          <h1 className="text-3xl font-black tracking-tight text-white mb-2">StellR Image Upload</h1>
           <p className="text-slate-400 text-sm font-medium tracking-wide">Sign in to access your dashboard</p>
         </div>
 
