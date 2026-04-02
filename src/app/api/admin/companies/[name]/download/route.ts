@@ -26,13 +26,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ name
     // Convert standard node readable stream into web-compliant ReadableStream
     const readableWebStream = new ReadableStream({
       start(controller) {
-        passThrough.on('data', (chunk) => {
+        passThrough.on('data', (chunk: any) => {
           controller.enqueue(new Uint8Array(chunk));
         });
         passThrough.on('end', () => {
           controller.close();
         });
-        passThrough.on('error', (err) => {
+        passThrough.on('error', (err: any) => {
           controller.error(err);
         });
       }
