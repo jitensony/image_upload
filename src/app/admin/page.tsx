@@ -4,8 +4,8 @@ import Link from 'next/link';
 
 interface Company {
   name: string;
-  imageCount: number;
-  createdAt: string;
+  fileCount: number;
+  lastModified: string;
 }
 
 export default function AdminDashboard() {
@@ -30,11 +30,11 @@ export default function AdminDashboard() {
   const filtered = companies
     .filter(c => c.name.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => {
-      if (sortBy === 'images') return b.imageCount - a.imageCount;
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      if (sortBy === 'images') return b.fileCount - a.fileCount;
+      return new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime();
     });
 
-  const totalImages = companies.reduce((acc, c) => acc + c.imageCount, 0);
+  const totalImages = companies.reduce((acc, c) => acc + c.fileCount, 0);
 
   return (
     <div className="p-6 md:p-10 animate-fade-in w-full max-w-7xl mx-auto space-y-10 relative z-0">
@@ -99,14 +99,14 @@ export default function AdminDashboard() {
                   <div className="flex justify-between items-start mb-4 gap-4">
                     <h3 className="text-xl font-black text-slate-100 group-hover:text-indigo-300 transition-colors truncate" title={c.name}>{c.name}</h3>
                     <span className="bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 text-xs px-3 py-1 rounded-full font-bold whitespace-nowrap shadow-sm shadow-indigo-500/10">
-                      {c.imageCount} imgs
+                      {c.fileCount} imgs
                     </span>
                   </div>
                   
                   <div className="mt-auto flex justify-between items-end border-t border-white/5 pt-4">
                      <div>
                        <p className="text-[10px] uppercase font-bold tracking-widest text-slate-500 mb-1">Index Registration</p>
-                       <p className="text-sm font-semibold text-slate-300">{new Date(c.createdAt).toLocaleDateString()}</p>
+                       <p className="text-sm font-semibold text-slate-300">{new Date(c.lastModified).toLocaleDateString()}</p>
                      </div>
                      <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center group-hover:bg-indigo-500 group-hover:text-white text-slate-500 transition-all shadow-md">
                        <svg className="w-4 h-4 translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7"></path></svg>
