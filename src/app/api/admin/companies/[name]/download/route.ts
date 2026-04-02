@@ -1,49 +1,44 @@
 import { NextResponse } from 'next/server';
 import archiver from 'archiver';
 import { PassThrough } from 'stream';
-import { adminStorage } from '@/lib/firebase-admin';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 
 export async function GET(request: Request, { params }: { params: Promise<{ name: string }> }) {
   try {
     const { name } = await params;
     const decodedName = decodeURIComponent(name);
 
-    // Query active specific file buffer sequences strictly from active Google Cloud Servers
-    const [files] = await adminStorage.getFiles({ prefix: `companies/${decodedName}/` });
-    
-    if (files.length === 0) {
-      return NextResponse.json({ error: 'Company essentially empty on Firebase' }, { status: 404 });
+    // Filter precise URLs from PostgreSQL directly
+    const { data: images, error } = await supabaseAdmin.from('images')
+      .select('file_name, file_url')
+      .eq('company_name', decodedName);
+      
+    if (error || !images || images.length === 0) {
+      return NextResponse.json({ error: 'Archive query failed mapping postgres references completely blank' }, { status: 404 });
     }
 
     const archive = archiver('zip', { zlib: { level: 5 } });
     const passThrough = new PassThrough();
 
-    archive.on('error', (err) => {
-      console.error('Archiver internal breakdown mapping:', err);
-    });
-
-    files.forEach((file) => {
-      // Isolate strict native filename bypassing deep structural paths
-      const fileName = file.name.split('/').pop() || 'unknown.jpg';
-      
-      // Feed Google Cloud remote bucket chunks natively downstream
-      const readStream = file.createReadStream();
-      archive.append(readStream as any, { name: fileName });
-    });
-
-    archive.finalize();
+    // Fire robust fetching functions processing binary array structures piped inherently
+    (async () => {
+      for (const img of images) {
+        try {
+          const res = await fetch(img.file_url);
+          const arrayBuffer = await res.arrayBuffer();
+          archive.append(Buffer.from(arrayBuffer), { name: img.file_name });
+        } catch(e) { 
+          console.error('Buffer streaming intercept exception:', e); 
+        }
+      }
+      archive.finalize();
+    })();
 
     const readableWebStream = new ReadableStream({
       start(controller) {
-        passThrough.on('data', (chunk: any) => {
-          controller.enqueue(new Uint8Array(chunk));
-        });
-        passThrough.on('end', () => {
-          controller.close();
-        });
-        passThrough.on('error', (err: any) => {
-          controller.error(err);
-        });
+        passThrough.on('data', chunk => controller.enqueue(new Uint8Array(chunk)));
+        passThrough.on('end', () => controller.close());
+        passThrough.on('error', err => controller.error(err));
       }
     });
 
@@ -56,6 +51,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ name
       },
     });
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to reconstruct native Google remote ZIP' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed validating buffer generation natively in API pipeline.' }, { status: 500 });
   }
 }

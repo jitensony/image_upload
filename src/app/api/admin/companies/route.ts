@@ -1,23 +1,21 @@
 import { NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebase-admin';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 
 export async function GET() {
   try {
-    const imagesRef = adminDb.collection('images');
-    const snapshot = await imagesRef.get();
+    const { data: images, error } = await supabaseAdmin.from('images').select('company_name, created_at');
+    if (error) throw error;
     
-    // Dynamically aggregate metrics locally via Firestore active snapshot arrays
+    // Aggregation matrices mapping structural groups seamlessly 
     const companyStats: Record<string, { count: number, lastUpdate: string }> = {};
-    
-    snapshot.forEach(doc => {
-      const data = doc.data();
-      const company = data.companyName;
+    images?.forEach(img => {
+      const company = img.company_name;
       if(!companyStats[company]) {
-        companyStats[company] = { count: 1, lastUpdate: data.uploadedAt };
+        companyStats[company] = { count: 1, lastUpdate: img.created_at };
       } else {
         companyStats[company].count += 1;
-        if(new Date(data.uploadedAt) > new Date(companyStats[company].lastUpdate)) {
-          companyStats[company].lastUpdate = data.uploadedAt;
+        if(new Date(img.created_at) > new Date(companyStats[company].lastUpdate)) {
+          companyStats[company].lastUpdate = img.created_at;
         }
       }
     });
@@ -30,7 +28,7 @@ export async function GET() {
 
     return NextResponse.json({ companies: formattedCompanies });
   } catch (error) {
-    console.error('Firebase Firestore Read Error:', error);
-    return NextResponse.json({ error: 'Failed to fetch companies' }, { status: 500 });
+    console.error('Supabase Postgres Read Error:', error);
+    return NextResponse.json({ error: 'Failed to scrape Postgres aggregates via Serverless Functions' }, { status: 500 });
   }
 }

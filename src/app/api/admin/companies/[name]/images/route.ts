@@ -1,29 +1,30 @@
 import { NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebase-admin';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 
 export async function GET(request: Request, { params }: { params: Promise<{ name: string }> }) {
   try {
     const { name } = await params;
     const decodedName = decodeURIComponent(name);
     
-    // Explicitly query Cloud Firestore locating specifically linked images
-    const snapshot = await adminDb.collection('images')
-      .where('companyName', '==', decodedName)
-      .get();
+    // Perform exact relational queries targeting specific client datasets deeply embedded in PostgreSQL
+    const { data: images, error } = await supabaseAdmin.from('images')
+      .select('*')
+      .eq('company_name', decodedName);
       
-    if (snapshot.empty) {
-      return NextResponse.json({ error: 'Company not found or has no images' }, { status: 404 });
+    if (error) throw error;
+    if (!images || images.length === 0) {
+      return NextResponse.json({ error: 'Postgres sequence unmatched. Null images acquired.' }, { status: 404 });
     }
 
-    const images = snapshot.docs.map(doc => ({
-      filename: doc.data().fileName,
-      url: doc.data().url,
-      id: doc.id
+    const mappedImages = images.map(img => ({
+      filename: img.file_name,
+      url: img.file_url,
+      id: img.id
     }));
 
-    return NextResponse.json({ images });
+    return NextResponse.json({ images: mappedImages });
   } catch (error) {
-    console.error('Firebase Get Images Error:', error);
-    return NextResponse.json({ error: 'Failed to fetch company images' }, { status: 500 });
+    console.error('Supabase Deep Details Error:', error);
+    return NextResponse.json({ error: 'Interlink failure reading detailed object datasets' }, { status: 500 });
   }
 }
