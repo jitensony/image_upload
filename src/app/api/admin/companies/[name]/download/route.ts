@@ -9,7 +9,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ name
   try {
     const { name } = await params;
     const sanitizedName = name.replace(/[^a-z0-9_]/gi, '');
-    const folderPath = path.join(process.cwd(), 'public', 'uploads', sanitizedName);
+    const os = require('os');
+    const UPLOAD_BASE = process.env.VERCEL ? path.join(os.tmpdir(), 'stellr_uploads') : path.join(process.cwd(), 'public', 'uploads');
+    const folderPath = path.join(UPLOAD_BASE, sanitizedName);
 
     try {
       await fs.access(folderPath);

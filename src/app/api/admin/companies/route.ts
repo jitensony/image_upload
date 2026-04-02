@@ -4,7 +4,9 @@ import path from 'path';
 
 export async function GET() {
   try {
-    const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
+    const os = require('os');
+    const uploadsDir = process.env.VERCEL ? path.join(os.tmpdir(), 'stellr_uploads') : path.join(process.cwd(), 'public', 'uploads');
+    
     
     // Check if the overall uploads directory exists
     try {

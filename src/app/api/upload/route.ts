@@ -24,8 +24,10 @@ export async function POST(request: Request) {
     // Sanitize company name to safely use as a folder name
     const sanitizedCompanyName = companyName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
     
-    // Using process.cwd() ensures it reliably references the root application directory
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', sanitizedCompanyName);
+    // Safely shift directory references into OS /tmp if deployed firmly on Serverless Vercel
+    const os = require('os');
+    const UPLOAD_BASE = process.env.VERCEL ? path.join(os.tmpdir(), 'stellr_uploads') : path.join(process.cwd(), 'public', 'uploads');
+    const uploadDir = path.join(UPLOAD_BASE, sanitizedCompanyName);
     
     await fs.mkdir(uploadDir, { recursive: true });
 
